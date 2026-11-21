@@ -1,0 +1,21 @@
+{
+  "name": "cloudplay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.5.0",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "@azure/identity": "^4.5.0",
+    "@azure/arm-compute": "^21.0.0",
+    "@azure/arm-network": "^33.5.0",
+    "@azure/storage-blob": "^12.25.0"
+  }
+}

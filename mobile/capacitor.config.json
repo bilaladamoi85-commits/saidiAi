@@ -1,0 +1,2 @@
+{ "appId": "com.cloudplay.app", "appName": "CloudPlay", "webDir": "www",
+  "server": { "url": "https://CHANGE-ME-YOUR-DOMAIN", "cleartext": false } }

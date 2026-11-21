@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CloudPlay</title>
+<style>
+:root{--bg:#0e1316;--panel:#161d22;--line:#26323a;--text:#e6ecef;--mute:#8a9ba5;--accent:#ff9f43;--bad:#ff6b6b;--ok:#5fd3a0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line)}
+h1{font-size:20px;margin:0;letter-spacing:.5px}
+h1 span{color:var(--accent)}
+main{max-width:980px;margin:0 auto;padding:20px}
+button,input,textarea{font:inherit;color:inherit}
+input,textarea{width:100%;background:#0b1013;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:6px 0 12px}
+input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn{background:var(--accent);color:#1a1005;border:0;border-radius:8px;padding:10px 16px;font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:wait}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.auth{max-width:380px;margin:8vh auto}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-top:14px}
+.app h3{margin:0 0 4px}
+.app p{margin:0 0 12px;color:var(--mute);font-size:14px;min-height:42px}
+.meta{font-size:13px;color:var(--mute)}
+.msg{min-height:22px;font-size:14px;color:var(--bad)}
+.msg.ok{color:var(--ok)}
+.hide{display:none}
+.stage{aspect-ratio:16/9;background:#05080a;border:1px solid var(--line);border-radius:10px;display:grid;place-items:center;text-align:center;padding:20px;color:var(--mute)}
+progress{width:100%;height:8px}
+label.chk{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--mute)}
+label.chk input{width:auto;margin:4px 0 0}
+h2{margin:0 0 6px;font-size:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Cloud<span>Play</span></h1>
+  <button id="out" class="btn ghost hide">Sign out</button>
+</header>
+<main>
+
+<section id="auth" class="card auth">
+  <h2 id="authTitle">Sign in</h2>
+  <label>Email<input id="email" type="email" autocomplete="email"></label>
+  <label>Password<input id="pass" type="password" autocomplete="current-password"></label>
+  <div id="authMsg" class="msg"></div>
+  <div class="row">
+    <button id="authGo" class="btn">Sign in</button>
+    <button id="authSwap" class="btn ghost">Create account</button>
+  </div>
+</section>
+
+<section id="home" class="hide">
+  <div class="row" style="justify-content:space-between">
+    <h2>Library</h2>
+    <button id="showUp" class="btn ghost">Upload an app</button>
+  </div>
+
+  <form id="up" class="card hide" style="margin-top:12px">
+    <label>Title<input name="title" maxlength="80" required></label>
+    <label>Description<textarea name="description" rows="2" maxlength="500"></textarea></label>
+    <label>File (.exe or .msi, under 1 GB)<input name="file" type="file" accept=".exe,.msi" required></label>
+    <label class="chk"><input id="rights" type="checkbox"> I own this app or have permission to share it, and it contains no malware.</label>
+    <progress id="bar" max="100" value="0" class="hide"></progress>
+    <div id="upMsg" class="msg"></div>
+    <button class="btn" id="upGo">Upload</button>
+  </form>
+
+  <div id="grid" class="grid"></div>
+  <p id="empty" class="meta hide">No apps yet. Upload the first one.</p>
+</section>
+
+<section id="play" class="hide">
+  <div class="row" style="justify-content:space-between;margin-bottom:12px">
+    <h2 id="playTitle"></h2>
+    <button id="stop" class="btn ghost">End session</button>
+  </div>
+  <div class="stage" id="stage"></div>
+  <p class="meta" id="playMeta"></p>
+</section>
+
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let token = localStorage.getItem('cp_token'), mode = 'login', session = null;
+
+async function api(path, opts = {}) {
+  const r = await fetch('/api' + path, { ...opts, headers: { ...(opts.headers || {}),
+    ...(token ? { Authorization: 'Bearer ' + token } : {}),
+    ...(opts.body && !(opts.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}) } });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401 && token) { signOut(); }
+  if (!r.ok) throw Object.assign(new Error(d.error || 'Something went wrong.'), { data: d });
+  return d;
+}
+function show(id) { ['auth','home','play'].forEach(s => $(s).classList.toggle('hide', s !== id)); $('out').classList.toggle('hide', id === 'auth'); }
+function signOut() { token = null; localStorage.removeItem('cp_token'); show('auth'); }
+$('out').onclick = signOut;
+
+$('authSwap').onclick = () => {
+  mode = mode === 'login' ? 'register' : 'login';
+  $('authTitle').textContent = mode === 'login' ? 'Sign in' : 'Create account';
+  $('authGo').textContent = mode === 'login' ? 'Sign in' : 'Create account';
+  $('authSwap').textContent = mode === 'login' ? 'Create account' : 'I have an account';
+  $('authMsg').textContent = '';
+};
+$('authGo').onclick = async () => {
+  try {
+    const d = await api('/' + mode, { method: 'POST', body: JSON.stringify({ email: $('email').value, password: $('pass').value }) });
+    token = d.token; localStorage.setItem('cp_token', token); load();
+  } catch (e) { $('authMsg').textContent = e.message; }
+};
+
+async function load() {
+  show('home');
+  try {
+    const apps = await api('/apps');
+    $('empty').classList.toggle('hide', apps.length > 0);
+    $('grid').innerHTML = '';
+    apps.forEach(a => {
+      const el = document.createElement('div'); el.className = 'card app';
+      const h = document.createElement('h3'); h.textContent = a.title;
+      const p = document.createElement('p'); p.textContent = a.description || 'No description.';
+      const m = document.createElement('div'); m.className = 'meta'; m.textContent = (a.size / 1048576).toFixed(1) + ' MB';
+      const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'Play';
+      b.onclick = () => start(a, b);
+      el.append(h, p, b, m); $('grid').append(el);
+    });
+  } catch (e) { /* handled by api() */ }
+}
+
+$('showUp').onclick = () => $('up').classList.toggle('hide');
+$('up').onsubmit = e => {
+  e.preventDefault();
+  const fd = new FormData($('up'));
+  fd.append('rights', $('rights').checked);
+  const x = new XMLHttpRequest();
+  x.open('POST', '/api/apps'); x.setRequestHeader('Authorization', 'Bearer ' + token);
+  $('bar').classList.remove('hide'); $('upGo').disabled = true; $('upMsg').textContent = ''; $('upMsg').className = 'msg';
+  x.upload.onprogress = ev => { if (ev.lengthComputable) $('bar').value = ev.loaded / ev.total * 100; };
+  x.onload = () => {
+    $('upGo').disabled = false; $('bar').classList.add('hide');
+    const d = JSON.parse(x.responseText || '{}');
+    if (x.status === 200) { $('up').reset(); $('up').classList.add('hide'); load(); }
+    else $('upMsg').textContent = d.error || 'Upload failed.';
+  };
+  x.onerror = () => { $('upGo').disabled = false; $('upMsg').textContent = 'Network error. Try again.'; };
+  x.send(fd);
+};
+
+async function start(a, btn) {
+  btn.disabled = true; btn.textContent = 'Starting…';
+  try {
+    const s = await api('/sessions', { method: 'POST', body: JSON.stringify({ appId: a.id }) });
+    session = s; $('playTitle').textContent = a.title; show('play');
+    $('stage').textContent = '';
+    if (s.streamUrl) {
+      const f = document.createElement('iframe'); f.src = s.streamUrl; f.style.cssText = 'width:100%;height:100%;border:0';
+      f.allow = 'fullscreen; gamepad; microphone'; $('stage').append(f);
+    } else {
+      $('stage').textContent = 'Session is running, but no GPU server is connected yet. Implement a provider in provider.js to stream the app here.';
+    }
+    $('playMeta').textContent = 'Sessions end automatically after ' + s.limitMinutes + ' minutes.';
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Play'; alert(e.message);
+    if (e.data && e.data.sessionId) { session = { sessionId: e.data.sessionId }; await stopSession(); }
+  }
+}
+async function stopSession() {
+  if (session) { try { await api('/sessions/' + session.sessionId, { method: 'DELETE' }); } catch {} }
+  session = null; load();
+}
+$('stop').onclick = stopSession;
+
+token ? load() : show('auth');
+</script>
+</body>
+</html>
